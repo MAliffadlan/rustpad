@@ -1,0 +1,25 @@
+[package]
+name = "rustpad"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+eframe = { version = "0.37", default-features = false, features = [
+    "accesskit",
+    "clipboard",
+    "default_fonts",
+    "glow",
+    "links",
+    "persistence",
+    "system_fonts",
+    "wayland",
+    "x11",
+] }
+egui = "0.37"
+egui_extras = { version = "0.37", features = ["syntect"] }
+two-face = { version = "0.5.2", default-features = false, features = ["syntect-fancy"] }
+syntect = { version = "5.3", default-features = false, features = ["default-fancy"] }
+rfd = "0.17"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+toml = "1.1"

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Rustpad
+GenericName=Text Editor
+Comment=Text editor ringan untuk Linux
+Exec=rustpad %F
+Terminal=false
+Icon=rustpad
+Categories=Utility;TextEditor;Development;
+MimeType=text/plain;
+StartupWMClass=rustpad
+Keywords=text;editor;code;write;rust;
