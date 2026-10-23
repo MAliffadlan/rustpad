@@ -13,6 +13,7 @@ pub struct EditorInfo {
     pub line: usize,
     pub col: usize,
     pub selection_chars: usize,
+    pub cursor_char: usize,
     pub changed: bool,
 }
 
@@ -22,6 +23,7 @@ impl Default for EditorInfo {
             line: 1,
             col: 1,
             selection_chars: 0,
+            cursor_char: 0,
             changed: false,
         }
     }
@@ -137,6 +139,7 @@ pub fn show(
             line,
             col,
             selection_chars,
+            cursor_char,
             changed,
         };
 

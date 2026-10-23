@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 
 use egui::text::{CCursor, CCursorRange};
@@ -75,6 +75,7 @@ pub struct RustpadApp {
     quit: QuitState,
     highlight: SyntectSettings,
     info: EditorInfo,
+    saved_cursors: HashMap<PathBuf, usize>,
     pending_focus: Option<TabId>,
     deferred_focus: Option<TabId>,
     pending_scroll: Option<usize>,
@@ -98,6 +99,13 @@ impl RustpadApp {
             ts: ThemeSet::load_defaults(),
         };
 
+        let saved_cursors: HashMap<PathBuf, usize> = config
+            .session
+            .cursors
+            .iter()
+            .map(|entry| (entry.path.clone(), entry.char))
+            .collect();
+
         let mut app = Self {
             tabs: Vec::new(),
             active: None,
@@ -110,6 +118,7 @@ impl RustpadApp {
             quit: QuitState::default(),
             highlight,
             info: EditorInfo::default(),
+            saved_cursors,
             pending_focus: None,
             deferred_focus: None,
             pending_scroll: None,
@@ -243,7 +252,9 @@ impl RustpadApp {
             Ok(loaded) => {
                 self.next_id += 1;
                 let id = self.next_id;
-                self.tabs.push(Tab::from_loaded(id, path.clone(), loaded));
+                let mut tab = Tab::from_loaded(id, path.clone(), loaded);
+                tab.restore_cursor = self.saved_cursors.get(&path).copied();
+                self.tabs.push(tab);
                 self.active = Some(id);
                 self.pending_focus = Some(id);
                 self.pending_scroll = None;
@@ -287,6 +298,16 @@ impl RustpadApp {
             .filter_map(|tab| tab.path.clone())
             .collect();
         self.config.session.active = self.active_tab().and_then(|tab| tab.path.clone());
+        self.config.session.cursors = self
+            .tabs
+            .iter()
+            .filter_map(|tab| {
+                tab.path.as_ref().map(|path| config::CursorEntry {
+                    path: path.clone(),
+                    char: tab.restore_cursor.unwrap_or(tab.last_cursor),
+                })
+            })
+            .collect();
         if let Some(path) = self.config_path.as_ref()
             && let Err(error) = config::save_to(&self.config, path)
         {
@@ -298,6 +319,12 @@ impl RustpadApp {
         let Some(index) = self.tabs.iter().position(|tab| tab.id == id) else {
             return;
         };
+        if let Some(path) = self.tabs[index].path.clone() {
+            let cursor = self.tabs[index]
+                .restore_cursor
+                .unwrap_or(self.tabs[index].last_cursor);
+            self.saved_cursors.insert(path, cursor);
+        }
         let was_active = self.active == Some(id);
         self.tabs.remove(index);
 
@@ -690,14 +717,6 @@ impl RustpadApp {
         self.deferred_focus = Some(tab_id);
     }
 
-    fn clear_undoer(&self, ctx: &Context, tab_id: TabId) {
-        let id = editor::editor_id(tab_id);
-        if let Some(mut state) = TextEdit::load_state(ctx, id) {
-            state.clear_undoer();
-            TextEdit::store_state(ctx, id, state);
-        }
-    }
-
     fn replace_current(&mut self, ctx: &Context) {
         let Some(index) = self.active_index() else {
             return;
@@ -714,7 +733,6 @@ impl RustpadApp {
         };
         let id = self.tabs[index].id;
         self.tabs[index].mark_changed();
-        self.clear_undoer(ctx, id);
 
         if let Some(range) = self.find.current_range() {
             let (start, end) = (
@@ -730,7 +748,7 @@ impl RustpadApp {
         }
     }
 
-    fn replace_all(&mut self, ctx: &Context) {
+    fn replace_all(&mut self) {
         let Some(index) = self.active_index() else {
             return;
         };
@@ -738,9 +756,7 @@ impl RustpadApp {
         if count == 0 {
             return;
         }
-        let id = self.tabs[index].id;
         self.tabs[index].mark_changed();
-        self.clear_undoer(ctx, id);
         self.pending_scroll = None;
     }
 
@@ -819,7 +835,7 @@ impl RustpadApp {
                 self.pending_focus = self.active;
             }
             Action::ReplaceCurrent => self.replace_current(ctx),
-            Action::ReplaceAll => self.replace_all(ctx),
+            Action::ReplaceAll => self.replace_all(),
             Action::SetWrap(value) => {
                 self.config.word_wrap = value;
                 self.persist_config();
@@ -1428,7 +1444,17 @@ impl eframe::App for RustpadApp {
                     find_matches,
                     active_match.as_ref(),
                 );
+                tab.last_cursor = editor_info.cursor_char;
+                let restore_cursor = tab.restore_cursor.take();
+                let text_chars = tab.text.chars().count();
+                let tab_id = tab.id;
                 self.info = editor_info;
+                if let Some(cursor) = restore_cursor {
+                    let cursor = cursor.min(text_chars);
+                    self.tabs[index].last_cursor = cursor;
+                    self.set_selection(ui.ctx(), tab_id, cursor, cursor);
+                    self.pending_scroll = Some(cursor);
+                }
                 if editor_info.changed && self.find.open {
                     self.recompute_find();
                 }

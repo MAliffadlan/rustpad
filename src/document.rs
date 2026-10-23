@@ -171,6 +171,8 @@ pub struct Tab {
     pub lang: Language,
     pub modified: bool,
     pub line_index: LineIndex,
+    pub last_cursor: usize,
+    pub restore_cursor: Option<usize>,
 }
 
 impl Tab {
@@ -184,6 +186,8 @@ impl Tab {
             lang: lang::PLAIN,
             modified: false,
             line_index: LineIndex::new(""),
+            last_cursor: 0,
+            restore_cursor: None,
         }
     }
 
@@ -199,6 +203,8 @@ impl Tab {
             lang,
             modified: false,
             line_index,
+            last_cursor: 0,
+            restore_cursor: None,
         }
     }
 
@@ -214,6 +220,8 @@ impl Tab {
             lang,
             modified: false,
             line_index: LineIndex::new(""),
+            last_cursor: 0,
+            restore_cursor: None,
         }
     }
 

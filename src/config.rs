@@ -18,6 +18,13 @@ pub enum ThemePref {
 pub struct Session {
     pub open_files: Vec<PathBuf>,
     pub active: Option<PathBuf>,
+    pub cursors: Vec<CursorEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CursorEntry {
+    pub path: PathBuf,
+    pub char: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -123,6 +130,10 @@ mod tests {
         config.session = Session {
             open_files: vec![PathBuf::from("/tmp/satu.txt")],
             active: Some(PathBuf::from("/tmp/satu.txt")),
+            cursors: vec![CursorEntry {
+                path: PathBuf::from("/tmp/satu.txt"),
+                char: 42,
+            }],
         };
 
         save_to(&config, &path).unwrap();
@@ -174,5 +185,23 @@ mod tests {
         };
         config.prune_recent();
         assert_eq!(config.recent_files, vec![exists]);
+    }
+
+    #[test]
+    fn legacy_session_without_cursors_uses_defaults() {
+        let dir = temp_dir("legacy");
+        let path = dir.join("config.toml");
+        fs::write(
+            &path,
+            "theme = \"dark\"\n\n[session]\nopen_files = [\"/tmp/satu.txt\"]\nactive = \"/tmp/satu.txt\"\n",
+        )
+        .unwrap();
+
+        let loaded = load_from(&path);
+        assert!(loaded.session.cursors.is_empty());
+        assert_eq!(
+            loaded.session.active.as_deref(),
+            Some(Path::new("/tmp/satu.txt"))
+        );
     }
 }
